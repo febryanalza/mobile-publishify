@@ -1,164 +1,284 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-  extensions = [pgcrypto]
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgcrypto, uuid_ossp(map: "uuid-ossp", schema: "extensions")]
 }
 
-// ============================================
-// ENUMS - Menggunakan Bahasa Indonesia
-// ============================================
-
-enum JenisPeran {
-  penulis
-  editor
-  percetakan
-  admin
-
-  @@map("jenis_peran")
+model feedback_review {
+  id            String        @id
+  idReview      String
+  bab           String?
+  halaman       Int?
+  komentar      String
+  dibuatPada    DateTime      @default(now())
+  review_naskah review_naskah @relation(fields: [idReview], references: [id], onDelete: Cascade)
 }
 
-enum StatusNaskah {
-  draft
-  diajukan
-  dalam_review
-  perlu_revisi
-  disetujui
-  ditolak
-  diterbitkan
+model file {
+  id             String   @id
+  idPengguna     String
+  namaFileAsli   String
+  namaFileSimpan String   @unique
+  ukuran         Int
+  mimeType       String
+  ekstensi       String
+  tujuan         String
+  path           String
+  url            String
+  urlPublik      String?
+  idReferensi    String?
+  deskripsi      String?
+  diuploadPada   DateTime @default(now())
+  pengguna       pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
 
-  @@map("status_naskah")
+  @@index([idPengguna])
+  @@index([idReferensi])
+  @@index([tujuan])
 }
 
-enum StatusReview {
-  ditugaskan
-  dalam_proses
-  selesai
-  dibatalkan
-
-  @@map("status_review")
+model genre {
+  id             String   @id
+  nama           String   @unique
+  slug           String   @unique
+  deskripsi      String?
+  aktif          Boolean  @default(true)
+  dibuatPada     DateTime @default(now())
+  diperbaruiPada DateTime
+  naskah         naskah[]
 }
 
-enum Rekomendasi {
-  setujui
-  revisi
-  tolak
-
-  @@map("rekomendasi")
+model kategori {
+  id             String     @id
+  nama           String
+  slug           String     @unique
+  deskripsi      String?
+  idInduk        String?
+  aktif          Boolean    @default(true)
+  dibuatPada     DateTime   @default(now())
+  diperbaruiPada DateTime
+  kategori       kategori?  @relation("kategoriTokategori", fields: [idInduk], references: [id])
+  other_kategori kategori[] @relation("kategoriTokategori")
+  naskah         naskah[]
 }
 
-enum StatusPesanan {
-  tertunda
-  diterima
-  dalam_produksi
-  kontrol_kualitas
-  siap
-  dikirim
-  terkirim
-  dibatalkan
+model log_aktivitas {
+  id         String    @id
+  idPengguna String?
+  jenis      String
+  aksi       String
+  entitas    String?
+  idEntitas  String?
+  deskripsi  String?
+  ipAddress  String?
+  userAgent  String?
+  dibuatPada DateTime  @default(now())
+  pengguna   pengguna? @relation(fields: [idPengguna], references: [id])
 
-  @@map("status_pesanan")
+  @@index([dibuatPada])
+  @@index([idPengguna])
 }
 
-enum StatusPengiriman {
-  diproses
-  dalam_perjalanan
-  terkirim
-  gagal
-
-  @@map("status_pengiriman")
+model log_produksi {
+  id            String        @id
+  idPesanan     String
+  tahapan       String
+  deskripsi     String?
+  dibuatPada    DateTime      @default(now())
+  pesanan_cetak pesanan_cetak @relation(fields: [idPesanan], references: [id], onDelete: Cascade)
 }
 
-enum StatusPembayaran {
-  tertunda
-  diproses
-  berhasil
-  gagal
-  dibatalkan
-  dikembalikan
+model naskah {
+  id              String          @id
+  idPenulis       String
+  judul           String
+  subJudul        String?
+  sinopsis        String
+  isbn            String?         @unique
+  idKategori      String
+  idGenre         String
+  bahasaTulis     String          @default("id")
+  jumlahHalaman   Int?
+  jumlahKata      Int?
+  status          status_naskah   @default(draft)
+  urlSampul       String?
+  urlFile         String?
+  publik          Boolean         @default(false)
+  biayaProduksi   Decimal?        @db.Decimal(10, 2)
+  hargaJual       Decimal?        @db.Decimal(10, 2)
+  diterbitkanPada DateTime?
+  dibuatPada      DateTime        @default(now())
+  diperbaruiPada  DateTime
+  formatBuku      format_buku     @default(A5)
+  genre           genre           @relation(fields: [idGenre], references: [id])
+  kategori        kategori        @relation(fields: [idKategori], references: [id])
+  pengguna        pengguna        @relation(fields: [idPenulis], references: [id])
+  pesanan_cetak   pesanan_cetak[]
+  review_naskah   review_naskah[]
+  revisi_naskah   revisi_naskah[]
+  tag_naskah      tag_naskah[]
 
-  @@map("status_pembayaran")
+  @@index([dibuatPada])
+  @@index([idGenre])
+  @@index([idKategori])
+  @@index([idKategori, status])
+  @@index([idPenulis])
+  @@index([idPenulis, status])
+  @@index([publik, diterbitkanPada])
+  @@index([status, dibuatPada])
+  @@index([status])
 }
 
-enum MetodePembayaran {
-  transfer_bank
-  kartu_kredit
-  e_wallet
-  virtual_account
-  cod
+model notifikasi {
+  id         String          @id
+  idPengguna String
+  judul      String
+  pesan      String
+  tipe       tipe_notifikasi @default(info)
+  dibaca     Boolean         @default(false)
+  url        String?
+  dibuatPada DateTime        @default(now())
+  pengguna   pengguna        @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
 
-  @@map("metode_pembayaran")
+  @@index([idPengguna, dibaca])
 }
 
-enum TipeNotifikasi {
-  info
-  sukses
-  peringatan
-  error
+model oauth_state {
+  id             String   @id
+  state          String   @unique
+  provider       String
+  redirectUrl    String?
+  kadaluarsaPada DateTime
+  dibuatPada     DateTime @default(now())
 
-  @@map("tipe_notifikasi")
+  @@index([kadaluarsaPada], map: "idx_oauth_state_expiry")
+  @@index([state], map: "idx_oauth_state_state")
 }
 
-enum Platform {
-  web
-  mobile
+model pembayaran {
+  id                String            @id
+  idPesanan         String            @unique
+  idPengguna        String
+  nomorTransaksi    String            @unique
+  jumlah            Decimal           @db.Decimal(10, 2)
+  metodePembayaran  metode_pembayaran
+  status            status_pembayaran @default(tertunda)
+  urlBukti          String?
+  catatanPembayaran String?
+  tanggalPembayaran DateTime?
+  dibuatPada        DateTime          @default(now())
+  diperbaruiPada    DateTime
+  pengguna          pengguna          @relation(fields: [idPengguna], references: [id])
+  pesanan_cetak     pesanan_cetak     @relation(fields: [idPesanan], references: [id])
 
-  @@map("platform")
+  @@index([idPengguna, status])
+  @@index([nomorTransaksi])
+  @@index([status, dibuatPada])
+  @@index([status])
 }
 
-// ============================================
-// CORE USER MANAGEMENT (4 tabel)
-// ============================================
+model pengguna {
+  id                         String           @id
+  email                      String           @unique
+  kataSandi                  String?
+  telepon                    String?
+  google_id                  String?          @unique
+  facebook_id                String?          @unique
+  apple_id                   String?          @unique
+  provider                   String?
+  avatar_url                 String?
+  email_verified_by_provider Boolean          @default(false)
+  aktif                      Boolean          @default(true)
+  terverifikasi              Boolean          @default(false)
+  emailDiverifikasiPada      DateTime?
+  loginTerakhir              DateTime?
+  dibuatPada                 DateTime         @default(now())
+  diperbaruiPada             DateTime
+  file                       file[]
+  log_aktivitas              log_aktivitas[]
+  naskah                     naskah[]
+  notifikasi                 notifikasi[]
+  pembayaran                 pembayaran[]
+  peran_pengguna             peran_pengguna[]
+  pesanan_cetak              pesanan_cetak[]
+  profil_pengguna            profil_pengguna?
+  profil_penulis             profil_penulis?
+  review_naskah              review_naskah[]
+  token_refresh              token_refresh[]
 
-model Pengguna {
-  id                    String    @id @default(uuid())
-  email                 String    @unique
-  kataSandi             String?   // ⚠️ Optional untuk OAuth users
-  telepon               String?
-  
-  // ✅ OAuth Fields
-  googleId              String?   @unique @map("google_id")
-  facebookId            String?   @unique @map("facebook_id")
-  appleId               String?   @unique @map("apple_id")
-  provider              String?              // "google", "facebook", "apple", "local"
-  avatarUrl             String?   @map("avatar_url")
-  emailVerifiedByProvider Boolean @default(false) @map("email_verified_by_provider")
-  
-  aktif                 Boolean   @default(true)
-  terverifikasi         Boolean   @default(false)
-  emailDiverifikasiPada DateTime?
-  loginTerakhir         DateTime?
-  dibuatPada            DateTime  @default(now())
-  diperbaruiPada        DateTime  @updatedAt
-
-  // Relations
-  profilPengguna   ProfilPengguna?
-  peranPengguna    PeranPengguna[]
-  profilPenulis    ProfilPenulis?
-  naskah           Naskah[]
-  review           ReviewNaskah[]
-  pesananCetak     PesananCetak[]
-  pembayaran       Pembayaran[]
-  notifikasi       Notifikasi[]
-  logAktivitas     LogAktivitas[]
-  tokenRefresh     TokenRefresh[]
-  file             File[]
-
-  @@index([googleId], map: "idx_pengguna_google_id")
+  @@index([google_id], map: "idx_pengguna_google_id")
   @@index([provider], map: "idx_pengguna_provider")
-  @@map("pengguna")
 }
 
-model ProfilPengguna {
-  id             String    @id @default(uuid())
+model pengiriman {
+  id              String            @id
+  idPesanan       String            @unique
+  namaEkspedisi   String
+  nomorResi       String?
+  biayaPengiriman Decimal           @db.Decimal(10, 2)
+  alamatTujuan    String
+  namaPenerima    String
+  teleponPenerima String
+  status          status_pengiriman @default(diproses)
+  tanggalKirim    DateTime?
+  estimasiTiba    DateTime?
+  tanggalTiba     DateTime?
+  dibuatPada      DateTime          @default(now())
+  diperbaruiPada  DateTime
+  pesanan_cetak   pesanan_cetak     @relation(fields: [idPesanan], references: [id], onDelete: Cascade)
+  tracking_log    tracking_log[]
+}
+
+model peran_pengguna {
+  id             String      @id
+  idPengguna     String
+  jenisPeran     jenis_peran
+  aktif          Boolean     @default(true)
+  ditugaskanPada DateTime    @default(now())
+  ditugaskanOleh String?
+  pengguna       pengguna    @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
+
+  @@unique([idPengguna, jenisPeran])
+}
+
+model pesanan_cetak {
+  id                String         @id
+  idNaskah          String
+  idPemesan         String
+  idPercetakan      String?
+  nomorPesanan      String         @unique
+  jumlah            Int
+  formatKertas      String
+  jenisKertas       String
+  jenisCover        String
+  finishingTambahan String[]
+  catatan           String?
+  hargaTotal        Decimal        @db.Decimal(10, 2)
+  status            status_pesanan @default(tertunda)
+  tanggalPesan      DateTime       @default(now())
+  estimasiSelesai   DateTime?
+  tanggalSelesai    DateTime?
+  diperbaruiPada    DateTime
+  log_produksi      log_produksi[]
+  pembayaran        pembayaran?
+  pengiriman        pengiriman?
+  naskah            naskah         @relation(fields: [idNaskah], references: [id])
+  pengguna          pengguna       @relation(fields: [idPemesan], references: [id])
+
+  @@index([idPemesan, status])
+  @@index([nomorPesanan])
+  @@index([status])
+  @@index([status, tanggalPesan])
+  @@index([tanggalPesan])
+}
+
+model profil_pengguna {
+  id             String    @id
   idPengguna     String    @unique
   namaDepan      String?
   namaBelakang   String?
@@ -172,29 +292,12 @@ model ProfilPengguna {
   provinsi       String?
   kodePos        String?
   dibuatPada     DateTime  @default(now())
-  diperbaruiPada DateTime  @updatedAt
-
-  pengguna Pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
-
-  @@map("profil_pengguna")
+  diperbaruiPada DateTime
+  pengguna       pengguna  @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
 }
 
-model PeranPengguna {
-  id             String     @id @default(uuid())
-  idPengguna     String
-  jenisPeran     JenisPeran
-  aktif          Boolean    @default(true)
-  ditugaskanPada DateTime   @default(now())
-  ditugaskanOleh String?
-
-  pengguna Pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
-
-  @@unique([idPengguna, jenisPeran])
-  @@map("peran_pengguna")
-}
-
-model ProfilPenulis {
-  id                String   @id @default(uuid())
+model profil_penulis {
+  id                String   @id
   idPengguna        String   @unique
   namaPena          String?
   biografi          String?
@@ -207,410 +310,188 @@ model ProfilPenulis {
   nomorRekeningBank String?
   npwp              String?
   dibuatPada        DateTime @default(now())
-  diperbaruiPada    DateTime @updatedAt
-
-  pengguna Pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
-
-  @@map("profil_penulis")
+  diperbaruiPada    DateTime
+  pengguna          pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
 }
 
-// ============================================
-// CONTENT MANAGEMENT (8 tabel)
-// ============================================
-
-model Naskah {
-  id             String       @id @default(uuid())
-  idPenulis      String
-  judul          String
-  subJudul       String?
-  sinopsis       String       @db.Text
-  isbn           String?      @unique
-  idKategori     String
-  idGenre        String
-  bahasaTulis    String       @default("id")
-  jumlahHalaman  Int?
-  jumlahKata     Int?
-  status         StatusNaskah @default(draft)
-  urlSampul      String?
-  urlFile        String?
-  publik         Boolean      @default(false)
-  diterbitkanPada DateTime?
-  dibuatPada     DateTime     @default(now())
-  diperbaruiPada DateTime     @updatedAt
-
-  // Relations
-  penulis      Pengguna       @relation(fields: [idPenulis], references: [id])
-  kategori     Kategori       @relation(fields: [idKategori], references: [id])
-  genre        Genre          @relation(fields: [idGenre], references: [id])
-  revisi       RevisiNaskah[]
-  review       ReviewNaskah[]
-  pesananCetak PesananCetak[]
-  tags         TagNaskah[]
-
-  @@index([idPenulis])
-  @@index([status])
-  @@index([idKategori])
-  @@index([idGenre])
-  @@index([idPenulis, status]) // Dashboard queries: penulis filter by status
-  @@index([status, dibuatPada]) // List queries: filter by status + sort by date
-  @@index([idKategori, status]) // Category page: kategori + status filter
-  @@index([publik, diterbitkanPada]) // Public listing: public naskah sorted by publish date
-  @@index([dibuatPada]) // Cursor pagination: sort by creation date
-  @@map("naskah")
-}
-
-model Kategori {
-  id             String      @id @default(uuid())
-  nama           String
-  slug           String      @unique
-  deskripsi      String?
-  idInduk        String?
-  aktif          Boolean     @default(true)
-  dibuatPada     DateTime    @default(now())
-  diperbaruiPada DateTime    @updatedAt
-
-  // Self-relation
-  induk       Kategori?  @relation("SubKategori", fields: [idInduk], references: [id])
-  subKategori Kategori[] @relation("SubKategori")
-  naskah      Naskah[]
-
-  @@map("kategori")
-}
-
-model Genre {
-  id             String   @id @default(uuid())
-  nama           String   @unique
-  slug           String   @unique
-  deskripsi      String?
-  aktif          Boolean  @default(true)
+model rating_review {
+  id             String   @id
+  idNaskah       String
+  idPengguna     String
+  rating         Int
+  ulasan         String?
   dibuatPada     DateTime @default(now())
-  diperbaruiPada DateTime @updatedAt
+  diperbaruiPada DateTime
 
-  naskah Naskah[]
-
-  @@map("genre")
+  @@unique([idNaskah, idPengguna])
 }
 
-model Tag {
-  id             String      @id @default(uuid())
-  nama           String      @unique
-  slug           String      @unique
-  dibuatPada     DateTime    @default(now())
+model review_naskah {
+  id              String            @id
+  idNaskah        String
+  idEditor        String
+  status          status_review     @default(ditugaskan)
+  rekomendasi     rekomendasi?
+  catatan         String?
+  ditugaskanPada  DateTime          @default(now())
+  dimulaiPada     DateTime?
+  selesaiPada     DateTime?
+  diperbaruiPada  DateTime
+  feedback_review feedback_review[]
+  pengguna        pengguna          @relation(fields: [idEditor], references: [id])
+  naskah          naskah            @relation(fields: [idNaskah], references: [id], onDelete: Cascade)
 
-  naskah TagNaskah[]
-
-  @@map("tag")
+  @@index([idEditor])
+  @@index([idEditor, status])
+  @@index([idNaskah])
+  @@index([status, ditugaskanPada])
 }
 
-model TagNaskah {
-  id         String   @id @default(uuid())
+model revisi_naskah {
+  id         String   @id
+  idNaskah   String
+  versi      Int
+  catatan    String?
+  urlFile    String
+  dibuatPada DateTime @default(now())
+  naskah     naskah   @relation(fields: [idNaskah], references: [id], onDelete: Cascade)
+
+  @@unique([idNaskah, versi])
+}
+
+model statistik_naskah {
+  id                 String   @id
+  idNaskah           String   @unique
+  totalDiunduh       Int      @default(0)
+  totalDibaca        Int      @default(0)
+  totalDibagikan     Int      @default(0)
+  totalDicetak       Int      @default(0)
+  ratingRataRata     Decimal  @default(0) @db.Decimal(3, 2)
+  totalRating        Int      @default(0)
+  terakhirDiperbarui DateTime
+}
+
+model tag {
+  id         String       @id
+  nama       String       @unique
+  slug       String       @unique
+  dibuatPada DateTime     @default(now())
+  tag_naskah tag_naskah[]
+}
+
+model tag_naskah {
+  id         String   @id
   idNaskah   String
   idTag      String
   dibuatPada DateTime @default(now())
-
-  naskah Naskah @relation(fields: [idNaskah], references: [id], onDelete: Cascade)
-  tag    Tag    @relation(fields: [idTag], references: [id], onDelete: Cascade)
+  naskah     naskah   @relation(fields: [idNaskah], references: [id], onDelete: Cascade)
+  tag        tag      @relation(fields: [idTag], references: [id], onDelete: Cascade)
 
   @@unique([idNaskah, idTag])
-  @@map("tag_naskah")
 }
 
-model RevisiNaskah {
-  id             String   @id @default(uuid())
-  idNaskah       String
-  versi          Int
-  catatan        String?  @db.Text
-  urlFile        String
-  dibuatPada     DateTime @default(now())
-
-  naskah Naskah @relation(fields: [idNaskah], references: [id], onDelete: Cascade)
-
-  @@unique([idNaskah, versi])
-  @@map("revisi_naskah")
-}
-
-// ============================================
-// REVIEW SYSTEM (3 tabel)
-// ============================================
-
-model ReviewNaskah {
-  id             String        @id @default(uuid())
-  idNaskah       String
-  idEditor       String
-  status         StatusReview  @default(ditugaskan)
-  rekomendasi    Rekomendasi?
-  catatan        String?       @db.Text
-  ditugaskanPada DateTime      @default(now())
-  dimulaiPada    DateTime?
-  selesaiPada    DateTime?
-  diperbaruiPada DateTime      @updatedAt
-
-  naskah   Naskah           @relation(fields: [idNaskah], references: [id], onDelete: Cascade)
-  editor   Pengguna         @relation(fields: [idEditor], references: [id])
-  feedback FeedbackReview[]
-
-  @@index([idNaskah])
-  @@index([idEditor])
-  @@index([idEditor, status]) // Editor dashboard: filter by editor + status
-  @@index([status, ditugaskanPada]) // Review queue: filter by status + sort by assigned date
-  @@map("review_naskah")
-}
-
-model FeedbackReview {
-  id             String   @id @default(uuid())
-  idReview       String
-  bab            String?
-  halaman        Int?
-  komentar       String   @db.Text
-  dibuatPada     DateTime @default(now())
-
-  review ReviewNaskah @relation(fields: [idReview], references: [id], onDelete: Cascade)
-
-  @@map("feedback_review")
-}
-
-// ============================================
-// PRINTING SYSTEM (5 tabel)
-// ============================================
-
-model PesananCetak {
-  id                  String        @id @default(uuid())
-  idNaskah            String
-  idPemesan           String
-  idPercetakan        String?
-  nomorPesanan        String        @unique
-  jumlah              Int
-  formatKertas        String        // A4, A5, dll
-  jenisKertas         String        // HVS, Art Paper, dll
-  jenisCover          String        // Soft cover, Hard cover
-  finishingTambahan   String[]      // Laminasi, emboss, dll
-  catatan             String?       @db.Text
-  hargaTotal          Decimal       @db.Decimal(10, 2)
-  status              StatusPesanan @default(tertunda)
-  tanggalPesan        DateTime      @default(now())
-  estimasiSelesai     DateTime?
-  tanggalSelesai      DateTime?
-  diperbaruiPada      DateTime      @updatedAt
-
-  naskah      Naskah          @relation(fields: [idNaskah], references: [id])
-  pemesan     Pengguna        @relation(fields: [idPemesan], references: [id])
-  pembayaran  Pembayaran?
-  pengiriman  Pengiriman?
-  logProduksi LogProduksi[]
-
-  @@index([nomorPesanan])
-  @@index([status])
-  @@index([idPemesan, status]) // User orders: filter by user + status
-  @@index([status, tanggalPesan]) // Production queue: filter by status + sort by date
-  @@index([tanggalPesan]) // Order history: sort by order date
-  @@map("pesanan_cetak")
-}
-
-model LogProduksi {
-  id             String   @id @default(uuid())
-  idPesanan      String
-  tahapan        String
-  deskripsi      String?  @db.Text
-  dibuatPada     DateTime @default(now())
-
-  pesanan PesananCetak @relation(fields: [idPesanan], references: [id], onDelete: Cascade)
-
-  @@map("log_produksi")
-}
-
-model Pengiriman {
-  id                String            @id @default(uuid())
-  idPesanan         String            @unique
-  namaEkspedisi     String
-  nomorResi         String?
-  biayaPengiriman   Decimal           @db.Decimal(10, 2)
-  alamatTujuan      String            @db.Text
-  namaPenerima      String
-  teleponPenerima   String
-  status            StatusPengiriman  @default(diproses)
-  tanggalKirim      DateTime?
-  estimasiTiba      DateTime?
-  tanggalTiba       DateTime?
-  dibuatPada        DateTime          @default(now())
-  diperbaruiPada    DateTime          @updatedAt
-
-  pesanan      PesananCetak   @relation(fields: [idPesanan], references: [id], onDelete: Cascade)
-  trackingLogs TrackingLog[]
-
-  @@map("pengiriman")
-}
-
-model TrackingLog {
-  id             String   @id @default(uuid())
-  idPengiriman   String
-  lokasi         String
-  status         String
-  deskripsi      String?
-  waktu          DateTime @default(now())
-
-  pengiriman Pengiriman @relation(fields: [idPengiriman], references: [id], onDelete: Cascade)
-
-  @@map("tracking_log")
-}
-
-// ============================================
-// PAYMENT SYSTEM (2 tabel)
-// ============================================
-
-model Pembayaran {
-  id                 String           @id @default(uuid())
-  idPesanan          String           @unique
-  idPengguna         String
-  nomorTransaksi     String           @unique
-  jumlah             Decimal          @db.Decimal(10, 2)
-  metodePembayaran   MetodePembayaran
-  status             StatusPembayaran @default(tertunda)
-  urlBukti           String?
-  catatanPembayaran  String?          @db.Text
-  tanggalPembayaran  DateTime?
-  dibuatPada         DateTime         @default(now())
-  diperbaruiPada     DateTime         @updatedAt
-
-  pesanan  PesananCetak @relation(fields: [idPesanan], references: [id])
-  pengguna Pengguna     @relation(fields: [idPengguna], references: [id])
-
-  @@index([nomorTransaksi])
-  @@index([status])
-  @@index([idPengguna, status]) // User payments: filter by user + status
-  @@index([status, dibuatPada]) // Payment queue: filter by status + sort by date
-  @@map("pembayaran")
-}
-
-// ============================================
-// NOTIFICATION SYSTEM (1 tabel)
-// ============================================
-
-model Notifikasi {
-  id             String          @id @default(uuid())
-  idPengguna     String
-  judul          String
-  pesan          String          @db.Text
-  tipe           TipeNotifikasi  @default(info)
-  dibaca         Boolean         @default(false)
-  url            String?
-  dibuatPada     DateTime        @default(now())
-
-  pengguna Pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
-
-  @@index([idPengguna, dibaca])
-  @@map("notifikasi")
-}
-
-// ============================================
-// AUTHENTICATION & SECURITY (2 tabel)
-// ============================================
-
-model TokenRefresh {
-  id             String   @id @default(uuid())
+model token_refresh {
+  id             String   @id
   idPengguna     String
   token          String   @unique
-  platform       Platform @default(web)
+  platform       platform @default(web)
   kadaluarsaPada DateTime
   dibuatPada     DateTime @default(now())
+  pengguna       pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
 
-  pengguna Pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
-
-  @@index([token])
   @@index([idPengguna, platform])
-  @@map("token_refresh")
+  @@index([token])
 }
 
-model LogAktivitas {
-  id             String   @id @default(uuid())
-  idPengguna     String?
-  jenis          String   // login, logout, verifikasi_email, lupa_password, reset_password, dll
-  aksi           String
-  entitas        String?  // naskah, review, pesanan, dll
-  idEntitas      String?
-  deskripsi      String?  @db.Text
-  ipAddress      String?
-  userAgent      String?
-  dibuatPada     DateTime @default(now())
-
-  pengguna Pengguna? @relation(fields: [idPengguna], references: [id], onDelete: SetNull)
-
-  @@index([idPengguna])
-  @@index([dibuatPada])
-  @@map("log_aktivitas")
+model tracking_log {
+  id           String     @id
+  idPengiriman String
+  lokasi       String
+  status       String
+  deskripsi    String?
+  waktu        DateTime   @default(now())
+  pengiriman   pengiriman @relation(fields: [idPengiriman], references: [id], onDelete: Cascade)
 }
 
-// ============================================
-// OAUTH AUTHENTICATION (1 tabel)
-// ============================================
-
-model OAuthState {
-  id             String   @id @default(uuid())
-  state          String   @unique
-  provider       String              // "google", "facebook", "apple"
-  redirectUrl    String?
-  kadaluarsaPada DateTime
-  dibuatPada     DateTime @default(now())
-  
-  @@index([state], map: "idx_oauth_state_state")
-  @@index([kadaluarsaPada], map: "idx_oauth_state_expiry")
-  @@map("oauth_state")
+enum format_buku {
+  A4
+  A5
+  B5
 }
 
-// ============================================
-// ANALYTICS & REPORTING (2 tabel)
-// ============================================
-
-model StatistikNaskah {
-  id                String   @id @default(uuid())
-  idNaskah          String   @unique
-  totalDiunduh      Int      @default(0)
-  totalDibaca       Int      @default(0)
-  totalDibagikan    Int      @default(0)
-  totalDicetak      Int      @default(0)
-  ratingRataRata    Decimal  @default(0) @db.Decimal(3, 2)
-  totalRating       Int      @default(0)
-  terakhirDiperbarui DateTime @updatedAt
-
-  @@map("statistik_naskah")
+enum jenis_peran {
+  penulis
+  editor
+  percetakan
+  admin
 }
 
-model RatingReview {
-  id             String   @id @default(uuid())
-  idNaskah       String
-  idPengguna     String
-  rating         Int      // 1-5
-  ulasan         String?  @db.Text
-  dibuatPada     DateTime @default(now())
-  diperbaruiPada DateTime @updatedAt
-
-  @@unique([idNaskah, idPengguna])
-  @@map("rating_review")
+enum metode_pembayaran {
+  transfer_bank
+  kartu_kredit
+  e_wallet
+  virtual_account
+  cod
 }
 
-// ============================================
-// FILE STORAGE (1 tabel)
-// ============================================
+enum platform {
+  web
+  mobile
+}
 
-model File {
-  id              String   @id @default(uuid())
-  idPengguna      String
-  namaFileAsli    String
-  namaFileSimpan  String   @unique
-  ukuran          Int      // dalam bytes
-  mimeType        String
-  ekstensi        String
-  tujuan          String   // naskah, sampul, gambar, dokumen
-  path            String
-  url             String
-  urlPublik       String?
-  idReferensi     String?
-  deskripsi       String?  @db.Text
-  diuploadPada    DateTime @default(now())
+enum rekomendasi {
+  setujui
+  revisi
+  tolak
+}
 
-  pengguna Pengguna @relation(fields: [idPengguna], references: [id], onDelete: Cascade)
+enum status_naskah {
+  draft
+  diajukan
+  dalam_review
+  perlu_revisi
+  disetujui
+  ditolak
+  diterbitkan
+}
 
-  @@index([idPengguna])
-  @@index([tujuan])
-  @@index([idReferensi])
-  @@map("file")
+enum status_pembayaran {
+  tertunda
+  diproses
+  berhasil
+  gagal
+  dibatalkan
+  dikembalikan
+}
+
+enum status_pengiriman {
+  diproses
+  dalam_perjalanan
+  terkirim
+  gagal
+}
+
+enum status_pesanan {
+  tertunda
+  diterima
+  dalam_produksi
+  kontrol_kualitas
+  siap
+  dikirim
+  terkirim
+  dibatalkan
+}
+
+enum status_review {
+  ditugaskan
+  dalam_proses
+  selesai
+  dibatalkan
+}
+
+enum tipe_notifikasi {
+  info
+  sukses
+  peringatan
+  error
 }

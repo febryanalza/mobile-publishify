@@ -20,6 +20,114 @@ export class ReviewService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Ambil semua review untuk naskah milik penulis
+   * OPTIMIZED: Single query dengan JOIN - mengatasi N+1 query problem
+   * Role: penulis
+   */
+  async ambilReviewPenulis(idPenulis: string, filter: FilterReviewDto) {
+    const {
+      halaman = 1,
+      limit = 20,
+      status,
+      rekomendasi,
+      urutkan = 'diperbaruiPada',
+      arah = 'desc',
+    } = filter;
+
+    // Ensure numeric values (convert from string if needed)
+    const pageNum = typeof halaman === 'string' ? parseInt(halaman) : halaman;
+    const limitNum = typeof limit === 'string' ? parseInt(limit) : limit;
+
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where clause
+    const where: any = {
+      naskah: {
+        idPenulis: idPenulis, // Filter by penulis
+      },
+    };
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (rekomendasi) {
+      where.rekomendasi = rekomendasi;
+    }
+
+    // Single query dengan JOIN - JAUH LEBIH CEPAT!
+    const [reviews, total] = await Promise.all([
+      this.prisma.reviewNaskah.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { [urutkan]: arah },
+        include: {
+          naskah: {
+            select: {
+              id: true,
+              judul: true,
+              subJudul: true,
+              status: true,
+              urlSampul: true,
+              kategori: {
+                select: {
+                  id: true,
+                  nama: true,
+                },
+              },
+              genre: {
+                select: {
+                  id: true,
+                  nama: true,
+                },
+              },
+            },
+          },
+          editor: {
+            select: {
+              id: true,
+              email: true,
+              profilPengguna: {
+                select: {
+                  namaDepan: true,
+                  namaBelakang: true,
+                  namaTampilan: true,
+                  urlAvatar: true,
+                },
+              },
+            },
+          },
+          feedback: {
+            orderBy: {
+              dibuatPada: 'desc',
+            },
+            take: 5, // Latest 5 feedback
+            select: {
+              id: true,
+              komentar: true,
+              dibuatPada: true,
+            },
+          },
+        },
+      }),
+      this.prisma.reviewNaskah.count({ where }),
+    ]);
+
+    return {
+      sukses: true,
+      pesan: 'Data review berhasil diambil',
+      data: reviews,
+      metadata: {
+        total,
+        halaman: pageNum,
+        limit: limitNum,
+        totalHalaman: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
+  /**
    * Tugaskan review ke editor
    * Role: admin, editor (senior)
    */
@@ -155,7 +263,10 @@ export class ReviewService {
       arah = 'desc',
     } = filter;
 
-    const skip = (halaman - 1) * limit;
+    // Konversi ke number (handle query string dari HTTP request)
+    const halamanNum = typeof halaman === 'string' ? parseInt(halaman, 10) : Number(halaman);
+    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : Number(limit);
+    const skip = (halamanNum - 1) * limitNum;
 
     // Build where clause
     const where: any = {};
@@ -181,15 +292,18 @@ export class ReviewService {
       this.prisma.reviewNaskah.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         orderBy: { [urutkan]: arah },
         include: {
           naskah: {
             select: {
               id: true,
               judul: true,
+              subJudul: true,
+              sinopsis: true,
               status: true,
               urlSampul: true,
+              jumlahHalaman: true,
               penulis: {
                 select: {
                   id: true,
@@ -198,8 +312,23 @@ export class ReviewService {
                     select: {
                       namaDepan: true,
                       namaBelakang: true,
+                      namaTampilan: true,
                     },
                   },
+                },
+              },
+              kategori: {
+                select: {
+                  id: true,
+                  nama: true,
+                  slug: true,
+                },
+              },
+              genre: {
+                select: {
+                  id: true,
+                  nama: true,
+                  slug: true,
                 },
               },
             },
@@ -212,14 +341,13 @@ export class ReviewService {
                 select: {
                   namaDepan: true,
                   namaBelakang: true,
+                  namaTampilan: true,
                 },
               },
             },
           },
-          _count: {
-            select: {
-              feedback: true,
-            },
+          feedback: {
+            orderBy: { dibuatPada: 'desc' },
           },
         },
       }),
@@ -232,9 +360,9 @@ export class ReviewService {
       data,
       metadata: {
         total,
-        halaman,
-        limit,
-        totalHalaman: Math.ceil(total / limit),
+        halaman: halamanNum,
+        limit: limitNum,
+        totalHalaman: Math.ceil(total / limitNum),
       },
     };
   }
@@ -383,6 +511,7 @@ export class ReviewService {
         status: true,
         naskah: {
           select: {
+            id: true,
             judul: true,
           },
         },
@@ -422,6 +551,16 @@ export class ReviewService {
           },
         });
       }
+
+      // Update status naskah menjadi perlu_revisi ketika feedback dikirim
+      // Ini memungkinkan penulis untuk langsung edit naskah
+      const naskahId = review.naskah.id;
+      await prisma.naskah.update({
+        where: { id: naskahId },
+        data: {
+          status: StatusNaskah.perlu_revisi,
+        },
+      });
 
       return newFeedback;
     });

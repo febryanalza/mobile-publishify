@@ -158,6 +158,40 @@ export class ReviewController {
   }
 
   /**
+   * GET /review/penulis/saya - Ambil semua review untuk naskah milik penulis
+   * Role: penulis
+   * OPTIMIZED: Single query dengan JOIN untuk performa optimal
+   */
+  @Get('penulis/saya')
+  @Peran('penulis')
+  @ApiOperation({
+    summary: 'Ambil semua review untuk naskah milik penulis yang login',
+    description:
+      'Penulis dapat melihat semua review untuk semua naskah mereka dengan single request yang optimal. Mengatasi N+1 query problem.',
+  })
+  @ApiQuery({ name: 'halaman', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'status', required: false, enum: StatusReview })
+  @ApiQuery({ name: 'rekomendasi', required: false, enum: Rekomendasi })
+  @ApiQuery({
+    name: 'urutkan',
+    required: false,
+    enum: ['diperbaruiPada', 'dibuatPada', 'selesaiPada'],
+    example: 'diperbaruiPada',
+  })
+  @ApiQuery({ name: 'arah', required: false, enum: ['asc', 'desc'], example: 'desc' })
+  @ApiResponse({
+    status: 200,
+    description: 'Daftar review berhasil diambil',
+  })
+  async ambilReviewPenulisSaya(
+    @Query() filter: FilterReviewDto,
+    @PenggunaSaatIni('id') idPenulis: string,
+  ) {
+    return this.reviewService.ambilReviewPenulis(idPenulis, filter);
+  }
+
+  /**
    * GET /review/naskah/:idNaskah - Ambil review untuk naskah tertentu
    * Role: penulis (owner), admin, editor
    */

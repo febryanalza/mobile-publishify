@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsBoolean, IsOptional, MinLength, MaxLength, IsUUID, Min } from 'class-validator';
 
 /**
  * Schema Zod untuk update naskah
@@ -42,9 +43,29 @@ export const PerbaruiNaskahSchema = z.object({
     .optional()
     .nullable(),
 
-  urlSampul: z.string().url('URL sampul tidak valid').optional().nullable(),
+  urlSampul: z
+    .string()
+    .refine(
+      (val) => {
+        // Accept full URL or relative path starting with /
+        return val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/');
+      },
+      { message: 'URL sampul harus berupa URL valid atau path relatif (dimulai dengan /)' },
+    )
+    .optional()
+    .nullable(),
 
-  urlFile: z.string().url('URL file tidak valid').optional().nullable(),
+  urlFile: z
+    .string()
+    .refine(
+      (val) => {
+        // Accept full URL or relative path starting with /
+        return val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/');
+      },
+      { message: 'URL file harus berupa URL valid atau path relatif (dimulai dengan /)' },
+    )
+    .optional()
+    .nullable(),
 
   publik: z.boolean().optional(),
 });
@@ -55,7 +76,7 @@ export const PerbaruiNaskahSchema = z.object({
 export type PerbaruiNaskahDto = z.infer<typeof PerbaruiNaskahSchema>;
 
 /**
- * Class untuk Swagger documentation
+ * Class untuk Swagger documentation dan validasi runtime
  */
 export class PerbaruiNaskahDtoClass {
   @ApiProperty({
@@ -64,6 +85,10 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
   judul?: string;
 
   @ApiProperty({
@@ -72,6 +97,9 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   subJudul?: string;
 
   @ApiProperty({
@@ -80,6 +108,10 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsString()
+  @MinLength(50)
+  @MaxLength(2000)
   sinopsis?: string;
 
   @ApiProperty({
@@ -88,6 +120,8 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsUUID()
   idKategori?: string;
 
   @ApiProperty({
@@ -96,6 +130,8 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsUUID()
   idGenre?: string;
 
   @ApiProperty({
@@ -104,6 +140,8 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsString()
   bahasaTulis?: string;
 
   @ApiProperty({
@@ -112,6 +150,9 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: Number,
   })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
   jumlahHalaman?: number;
 
   @ApiProperty({
@@ -120,6 +161,9 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: Number,
   })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
   jumlahKata?: number;
 
   @ApiProperty({
@@ -128,6 +172,8 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsString()
   urlSampul?: string;
 
   @ApiProperty({
@@ -136,6 +182,8 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: String,
   })
+  @IsOptional()
+  @IsString()
   urlFile?: string;
 
   @ApiProperty({
@@ -143,5 +191,7 @@ export class PerbaruiNaskahDtoClass {
     required: false,
     type: Boolean,
   })
+  @IsOptional()
+  @IsBoolean()
   publik?: boolean;
 }

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
@@ -21,6 +22,8 @@ import {
 
 @Injectable()
 export class NaskahService {
+  private readonly logger = new Logger(NaskahService.name);
+  
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -136,10 +139,12 @@ export class NaskahService {
       where.publik = true;
       where.status = StatusNaskah.diterbitkan;
     } else {
-      // Authenticated user bisa filter publik
+      // Authenticated user bisa filter publik (opsional)
       if (publik !== undefined) {
         where.publik = publik;
       }
+      // Authenticated user: tidak ada filter status default
+      // Mereka bisa melihat semua status termasuk 'diajukan'
     }
 
     // Search filter (judul, sinopsis)
@@ -150,7 +155,7 @@ export class NaskahService {
       ];
     }
 
-    // Filter by status
+    // Filter by status (explicitly)
     if (status) {
       where.status = status;
     }
@@ -185,11 +190,16 @@ export class NaskahService {
           isbn: true,
           status: true,
           urlSampul: true,
+          urlFile: true,
           jumlahHalaman: true,
           jumlahKata: true,
+          bahasaTulis: true,
           publik: true,
           dibuatPada: true,
           diperbaruiPada: true,
+          idPenulis: true,
+          idKategori: true,
+          idGenre: true,
           penulis: {
             select: {
               id: true,
@@ -222,6 +232,19 @@ export class NaskahService {
               id: true,
               nama: true,
               slug: true,
+            },
+          },
+          review: {
+            select: {
+              id: true,
+              idEditor: true,
+              status: true,
+              rekomendasi: true,
+            },
+            where: {
+              status: {
+                in: ['ditugaskan', 'dalam_proses'],
+              },
             },
           },
           _count: {
@@ -358,6 +381,9 @@ export class NaskahService {
    * Ambil detail naskah by ID
    */
   async ambilNaskahById(id: string, idPengguna?: string) {
+    // Debug logging untuk troubleshooting
+    this.logger.debug(`[ambilNaskahById] ID Naskah: ${id}, ID Pengguna: ${idPengguna || 'undefined'}`);
+    
     const naskah = await this.prisma.naskah.findUnique({
       where: { id },
       include: {
@@ -422,8 +448,17 @@ export class NaskahService {
       throw new NotFoundException('Naskah tidak ditemukan');
     }
 
-    // Validasi akses (jika private, hanya penulis yang bisa akses)
-    if (!naskah.publik && (!idPengguna || naskah.idPenulis !== idPengguna)) {
+    // Validasi akses dengan best practice:
+    // 1. Pemilik SELALU bisa akses naskah mereka sendiri (publik atau private)
+    // 2. Naskah publik bisa diakses siapa saja
+    // 3. Naskah private hanya bisa diakses pemilik
+    const isPemilik = idPengguna && naskah.idPenulis === idPengguna;
+    const isNaskahPublik = naskah.publik;
+
+    // Debug logging untuk troubleshooting
+    this.logger.debug(`[ambilNaskahById] isPemilik: ${isPemilik}, isNaskahPublik: ${isNaskahPublik}, idPenulis naskah: ${naskah.idPenulis}`);
+
+    if (!isPemilik && !isNaskahPublik) {
       throw new ForbiddenException('Anda tidak memiliki akses ke naskah ini');
     }
 
@@ -475,13 +510,19 @@ export class NaskahService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk mengubah naskah ini');
     }
 
-    // Validasi: tidak bisa edit jika status bukan draft atau perlu_revisi
-    if (
-      !isAdmin &&
-      naskahLama.status !== StatusNaskah.draft &&
-      naskahLama.status !== StatusNaskah.perlu_revisi
-    ) {
-      throw new BadRequestException('Naskah hanya bisa diubah saat status draft atau perlu revisi');
+    // Validasi: tidak bisa edit jika status sudah disetujui, ditolak, atau diterbitkan
+    // Allowed: draft, diajukan, dalam_review, perlu_revisi
+    const allowedStatuses = [
+      StatusNaskah.draft,
+      StatusNaskah.diajukan,
+      StatusNaskah.dalam_review,
+      StatusNaskah.perlu_revisi,
+    ];
+
+    if (!isAdmin && !allowedStatuses.includes(naskahLama.status)) {
+      throw new BadRequestException(
+        'Naskah tidak dapat diubah setelah disetujui, ditolak, atau diterbitkan. Status saat ini: ' + naskahLama.status
+      );
     }
 
     // Validasi kategori dan genre jika ada update

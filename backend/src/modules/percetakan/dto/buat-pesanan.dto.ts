@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsArray, IsOptional, IsEnum, Min, Max, MaxLength } from 'class-validator';
 
 /**
  * DTO untuk membuat pesanan cetak buku
@@ -64,6 +65,7 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     example: '123e4567-e89b-12d3-a456-426614174000',
     format: 'uuid',
   })
+  @IsString()
   idNaskah!: string;
 
   @ApiProperty({
@@ -72,6 +74,9 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     minimum: 1,
     maximum: 10000,
   })
+  @IsNumber()
+  @Min(1)
+  @Max(10000)
   jumlah!: number;
 
   @ApiProperty({
@@ -79,6 +84,7 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     enum: ['A4', 'A5', 'B5', 'Letter', 'Custom'],
     example: 'A5',
   })
+  @IsEnum(['A4', 'A5', 'B5', 'Letter', 'Custom'])
   formatKertas!: 'A4' | 'A5' | 'B5' | 'Letter' | 'Custom';
 
   @ApiProperty({
@@ -86,6 +92,7 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     enum: ['HVS 70gr', 'HVS 80gr', 'Art Paper 120gr', 'Art Paper 150gr', 'Bookpaper'],
     example: 'HVS 80gr',
   })
+  @IsEnum(['HVS 70gr', 'HVS 80gr', 'Art Paper 120gr', 'Art Paper 150gr', 'Bookpaper'])
   jenisKertas!: 'HVS 70gr' | 'HVS 80gr' | 'Art Paper 120gr' | 'Art Paper 150gr' | 'Bookpaper';
 
   @ApiProperty({
@@ -93,6 +100,7 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     enum: ['Soft Cover', 'Hard Cover', 'Board Cover'],
     example: 'Soft Cover',
   })
+  @IsEnum(['Soft Cover', 'Hard Cover', 'Board Cover'])
   jenisCover!: 'Soft Cover' | 'Hard Cover' | 'Board Cover';
 
   @ApiProperty({
@@ -103,6 +111,8 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     default: [],
     example: ['Laminasi Glossy', 'Spot UV'],
   })
+  @IsArray()
+  @IsOptional()
   finishingTambahan!: Array<
     'Laminasi Glossy' | 'Laminasi Doff' | 'Emboss' | 'Deboss' | 'Spot UV' | 'Foil' | 'Tidak Ada'
   >;
@@ -113,5 +123,8 @@ export class BuatPesananDtoClass implements BuatPesananDto {
     required: false,
     maxLength: 1000,
   })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
   catatan?: string;
 }

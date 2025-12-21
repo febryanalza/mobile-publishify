@@ -14,7 +14,7 @@ export const FilterNaskahSchema = z.object({
   idGenre: z.string().uuid().optional(),
   idPenulis: z.string().uuid().optional(),
   publik: z.coerce.boolean().optional(),
-  urutkan: z.enum(['dibuatPada', 'judul', 'status', 'jumlahHalaman']).default('dibuatPada'),
+  urutkan: z.enum(['dibuatPada', 'diperbaruiPada', 'judul', 'status', 'jumlahHalaman']).default('dibuatPada'),
   arah: z.enum(['asc', 'desc']).default('desc'),
 });
 
@@ -96,12 +96,12 @@ export class FilterNaskahDtoClass {
 
   @ApiProperty({
     description: 'Field untuk sorting',
-    enum: ['dibuatPada', 'judul', 'status', 'jumlahHalaman'],
+    enum: ['dibuatPada', 'diperbaruiPada', 'judul', 'status', 'jumlahHalaman'],
     default: 'dibuatPada',
     required: false,
     type: String,
   })
-  urutkan?: 'dibuatPada' | 'judul' | 'status' | 'jumlahHalaman';
+  urutkan?: 'dibuatPada' | 'diperbaruiPada' | 'judul' | 'status' | 'jumlahHalaman';
 
   @ApiProperty({
     description: 'Arah sorting',

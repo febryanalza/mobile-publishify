@@ -826,6 +826,7 @@ export class PercetakanService {
 
     return {
       sukses: true,
+      pesan: 'Statistik pesanan berhasil diambil',
       data: {
         totalPesanan,
         pesananAktif,

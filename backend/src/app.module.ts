@@ -7,12 +7,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 // Konfigurasi
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
-import redisConfig from './config/redis.config';
+// import redisConfig from './config/redis.config'; // DISABLED: Redis connection issues
 import emailConfig from './config/email.config';
 
 // Modules
 import { PrismaModule } from './prisma/prisma.module';
-import { CacheModule } from './common/cache/cache.module';
+// import { CacheModule } from './common/cache/cache.module'; // DISABLED: Redis connection issues
 import { LoggerModule } from './common/logger/logger.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { PenggunaModule } from './modules/pengguna/pengguna.module';
@@ -45,7 +45,7 @@ import { AppController } from './app.controller';
     // Konfigurasi global
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, jwtConfig, redisConfig, emailConfig],
+      load: [databaseConfig, jwtConfig, emailConfig], // redisConfig removed
       envFilePath: ['.env.local', '.env'],
     }),
 
@@ -66,8 +66,8 @@ import { AppController } from './app.controller';
     // Prisma
     PrismaModule,
 
-    // Cache Module (Redis)
-    CacheModule,
+    // Cache Module (Redis) - DISABLED: Connection issues in development
+    // CacheModule,
 
     // Logger Module (Async Logging)
     LoggerModule,

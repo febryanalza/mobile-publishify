@@ -1,13 +1,16 @@
 import { z } from 'zod';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsInt, Min, Max, IsEnum, IsUUID, IsString, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 /**
  * DTO untuk filter dan pagination pesanan cetak
  * Digunakan untuk listing pesanan dengan berbagai filter
  */
 export const FilterPesananSchema = z.object({
-  // Pagination
+  // Pagination - menggunakan coerce untuk konversi string ke number dari query params
   halaman: z
+    .coerce
     .number()
     .int('Halaman harus berupa bilangan bulat')
     .positive('Halaman harus lebih dari 0')
@@ -15,6 +18,7 @@ export const FilterPesananSchema = z.object({
     .describe('Nomor halaman untuk pagination'),
 
   limit: z
+    .coerce
     .number()
     .int('Limit harus berupa bilangan bulat')
     .positive('Limit harus lebih dari 0')
@@ -83,9 +87,10 @@ export const FilterPesananSchema = z.object({
 export type FilterPesananDto = z.infer<typeof FilterPesananSchema>;
 
 /**
- * Class untuk Swagger documentation
+ * Class untuk Swagger documentation dan class-validator
+ * Tidak menggunakan implements karena tipe berbeda (optional vs required dengan default)
  */
-export class FilterPesananDtoClass implements FilterPesananDto {
+export class FilterPesananDtoClass {
   @ApiProperty({
     description: 'Nomor halaman',
     example: 1,
@@ -93,7 +98,11 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     default: 1,
     required: false,
   })
-  halaman!: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  halaman?: number = 1;
 
   @ApiProperty({
     description: 'Jumlah data per halaman',
@@ -103,7 +112,12 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     default: 20,
     required: false,
   })
-  limit!: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
 
   @ApiProperty({
     description: 'Filter berdasarkan status pesanan',
@@ -120,6 +134,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     example: 'dalam_produksi',
     required: false,
   })
+  @IsOptional()
+  @IsEnum(['tertunda', 'diterima', 'dalam_produksi', 'kontrol_kualitas', 'siap', 'dikirim', 'terkirim', 'dibatalkan'])
   status?:
     | 'tertunda'
     | 'diterima'
@@ -136,6 +152,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     format: 'uuid',
     required: false,
   })
+  @IsOptional()
+  @IsUUID()
   idPemesan?: string;
 
   @ApiProperty({
@@ -144,6 +162,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     format: 'uuid',
     required: false,
   })
+  @IsOptional()
+  @IsUUID()
   idNaskah?: string;
 
   @ApiProperty({
@@ -151,6 +171,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     example: 'PO-2024-001',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   nomorPesanan?: string;
 
   @ApiProperty({
@@ -159,6 +181,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     format: 'date-time',
     required: false,
   })
+  @IsOptional()
+  @IsDateString()
   tanggalMulai?: string;
 
   @ApiProperty({
@@ -167,6 +191,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     format: 'date-time',
     required: false,
   })
+  @IsOptional()
+  @IsDateString()
   tanggalSelesai?: string;
 
   @ApiProperty({
@@ -174,6 +200,8 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     example: 'urgent',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   cari?: string;
 
   @ApiProperty({
@@ -183,7 +211,9 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     default: 'tanggalPesan',
     required: false,
   })
-  urutkan!: 'tanggalPesan' | 'hargaTotal' | 'jumlah' | 'status';
+  @IsOptional()
+  @IsEnum(['tanggalPesan', 'hargaTotal', 'jumlah', 'status'])
+  urutkan?: 'tanggalPesan' | 'hargaTotal' | 'jumlah' | 'status' = 'tanggalPesan';
 
   @ApiProperty({
     description: 'Arah sorting',
@@ -192,5 +222,7 @@ export class FilterPesananDtoClass implements FilterPesananDto {
     default: 'desc',
     required: false,
   })
-  arah!: 'asc' | 'desc';
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  arah?: 'asc' | 'desc' = 'desc';
 }

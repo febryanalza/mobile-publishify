@@ -31,6 +31,7 @@ import { PeranGuard } from '@/modules/auth/guards/roles.guard';
 import { Peran } from '@/modules/auth/decorators/peran.decorator';
 import { PenggunaSaatIni } from '@/modules/auth/decorators/pengguna-saat-ini.decorator';
 import { Public } from '@/common/decorators/public.decorator';
+import { OptionalAuth } from '@/common/decorators/optional-auth.decorator';
 import { ValidasiZodPipe } from '@/common/pipes/validasi-zod.pipe';
 import {
   BuatNaskahSchema,
@@ -39,12 +40,12 @@ import {
   AjukanNaskahSchema,
   TerbitkanNaskahSchema,
 } from './dto';
-import { CacheInterceptor, CacheTTL } from '@/common/cache';
+// import { CacheInterceptor, CacheTTL } from '@/common/cache'; // DISABLED: Redis
 
 @ApiTags('naskah')
 @Controller('naskah')
 @UseGuards(JwtAuthGuard, PeranGuard)
-@UseInterceptors(CacheInterceptor)
+// @UseInterceptors(CacheInterceptor) // DISABLED: Redis
 export class NaskahController {
   constructor(private readonly naskahService: NaskahService) {}
 
@@ -53,7 +54,7 @@ export class NaskahController {
    */
   @Get()
   @Public()
-  @CacheTTL(300) // Cache 5 menit untuk list naskah
+  // @CacheTTL(300) // Cache 5 menit untuk list naskah - DISABLED: Redis
   @ApiOperation({
     summary: 'Ambil daftar naskah',
     description:
@@ -77,7 +78,7 @@ export class NaskahController {
    */
   @Get('cursor')
   @Public()
-  @CacheTTL(180) // Cache 3 menit untuk cursor pagination
+  // @CacheTTL(180) // Cache 3 menit untuk cursor pagination - DISABLED: Redis
   @ApiOperation({
     summary: 'Ambil daftar naskah dengan cursor pagination',
     description:
@@ -183,8 +184,8 @@ export class NaskahController {
    * GET /naskah/:id - Ambil detail naskah
    */
   @Get(':id')
-  @Public()
-  @CacheTTL(600) // Cache 10 menit untuk detail naskah
+  @OptionalAuth()
+  // @CacheTTL(600) // Cache 10 menit untuk detail naskah - DISABLED: Redis
   @ApiOperation({
     summary: 'Ambil detail naskah',
     description:

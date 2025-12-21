@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsNumber, IsString, IsOptional, IsDateString, MaxLength, Min } from 'class-validator';
 
 /**
  * DTO untuk konfirmasi pesanan oleh percetakan
@@ -30,13 +31,14 @@ export const KonfirmasiPesananSchema = z.object({
 export type KonfirmasiPesananDto = z.infer<typeof KonfirmasiPesananSchema>;
 
 /**
- * Class untuk Swagger documentation
+ * Class untuk Swagger documentation dan class-validator validation
  */
 export class KonfirmasiPesananDtoClass implements KonfirmasiPesananDto {
   @ApiProperty({
     description: 'Apakah pesanan diterima atau ditolak',
     example: true,
   })
+  @IsBoolean({ message: 'Diterima harus berupa boolean' })
   diterima!: boolean;
 
   @ApiProperty({
@@ -45,6 +47,9 @@ export class KonfirmasiPesananDtoClass implements KonfirmasiPesananDto {
     minimum: 1,
     required: false,
   })
+  @IsOptional()
+  @IsNumber({}, { message: 'Harga total harus berupa angka' })
+  @Min(1, { message: 'Harga total harus lebih dari 0' })
   hargaTotal?: number;
 
   @ApiProperty({
@@ -53,6 +58,8 @@ export class KonfirmasiPesananDtoClass implements KonfirmasiPesananDto {
     format: 'date-time',
     required: false,
   })
+  @IsOptional()
+  @IsDateString({}, { message: 'Format tanggal harus ISO 8601' })
   estimasiSelesai?: string;
 
   @ApiProperty({
@@ -61,5 +68,8 @@ export class KonfirmasiPesananDtoClass implements KonfirmasiPesananDto {
     required: false,
     maxLength: 500,
   })
+  @IsOptional()
+  @IsString({ message: 'Catatan harus berupa string' })
+  @MaxLength(500, { message: 'Catatan maksimal 500 karakter' })
   catatan?: string;
 }

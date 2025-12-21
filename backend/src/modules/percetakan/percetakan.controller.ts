@@ -26,6 +26,7 @@ import {
   UpdateStatusDtoClass,
   BuatPengirimanDtoClass,
   KonfirmasiPesananDtoClass,
+  FilterPesananDto,
 } from './dto';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { PeranGuard } from '@/modules/auth/guards/roles.guard';
@@ -125,7 +126,7 @@ export class PercetakanController {
     description: 'Daftar pesanan berhasil diambil',
   })
   async ambilSemuaPesanan(
-    @Query(new ValidasiZodPipe(FilterPesananSchema)) filter: FilterPesananDtoClass,
+    @Query(new ValidasiZodPipe(FilterPesananSchema)) filter: FilterPesananDto,
     @PenggunaSaatIni('id') idPengguna: string,
     @PenggunaSaatIni('peran') peran: string,
   ) {
@@ -161,7 +162,7 @@ export class PercetakanController {
   })
   async ambilPesananPenulis(
     @PenggunaSaatIni('id') idPenulis: string,
-    @Query(new ValidasiZodPipe(FilterPesananSchema)) filter: FilterPesananDtoClass,
+    @Query(new ValidasiZodPipe(FilterPesananSchema)) filter: FilterPesananDto,
   ) {
     return this.percetakanService.ambilPesananPenulis(idPenulis, filter);
   }

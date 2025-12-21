@@ -28,7 +28,12 @@ export class LocalStrategy extends PassportStrategy(Strategy, 'local') {
    * @throws UnauthorizedException jika credentials tidak valid
    */
   async validate(email: string, kataSandi: string): Promise<any> {
-    const pengguna = await this.authService.validasiPengguna(email, kataSandi);
+    // Validasi input untuk mencegah null/undefined
+    if (!email || !kataSandi || email.trim() === '' || kataSandi.trim() === '') {
+      throw new UnauthorizedException('Email dan kata sandi harus diisi');
+    }
+
+    const pengguna = await this.authService.validasiPengguna(email.trim(), kataSandi);
 
     if (!pengguna) {
       throw new UnauthorizedException('Email atau kata sandi tidak valid');
