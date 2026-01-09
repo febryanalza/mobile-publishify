@@ -512,14 +512,14 @@ export class NaskahService {
 
     // Validasi: tidak bisa edit jika status sudah disetujui, ditolak, atau diterbitkan
     // Allowed: draft, diajukan, dalam_review, perlu_revisi
-    const allowedStatuses = [
+    const allowedStatuses: StatusNaskah[] = [
       StatusNaskah.draft,
       StatusNaskah.diajukan,
       StatusNaskah.dalam_review,
       StatusNaskah.perlu_revisi,
     ];
 
-    if (!isAdmin && !allowedStatuses.includes(naskahLama.status)) {
+    if (!isAdmin && !allowedStatuses.includes(naskahLama.status as StatusNaskah)) {
       throw new BadRequestException(
         'Naskah tidak dapat diubah setelah disetujui, ditolak, atau diterbitkan. Status saat ini: ' + naskahLama.status
       );
